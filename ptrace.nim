@@ -83,7 +83,13 @@ const
   importc,
   header: "sys/ptrace.h"
 .}
-proc ptrace*(request: cint, pid: Pid, a: ptr cint, data: pointer): clong {.c, inline.}
+
+proc ptrace*(request: cint, pid: Pid, a: ptr cint, data: pointer): clong {.c.}
+
+proc ptrace*(request: cint, pid: Pid, a: int, data: pointer): clong {.inline.} =
+  var a = a.cint
+  ptrace(request, pid, addr a, data)
+
 
 proc setOptions*(p: Pid, opts: ptr cint): clong =
   ptrace(PTRACE_SETOPTIONS, p, nil, opts)
@@ -119,8 +125,7 @@ when isMainModule:
   else:
     var a: cint = 0
     echo wait(a)
-    var data: cint = 8 * 15
-    orig_ax = ptrace(PTRACE_PEEKUSER, child, addr data, nil)
+    orig_ax = ptrace(PTRACE_PEEKUSER, child, 4 * 15, nil)
     echo errno, " ", strerror(errno)
     echo "The child made a system call: ", orig_ax
-    discard cont(child, addr data)
+    discard cont(child, nil)
