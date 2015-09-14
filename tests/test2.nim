@@ -31,7 +31,5 @@ else:
         putString(child, params[1], $str, params[2])
       else:
         toggle = false
-    else:
-      echo syscallNo
 
     discard ptrace(PTRACE_SYSCALL, child, 0, 0)

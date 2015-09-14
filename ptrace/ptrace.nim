@@ -6,12 +6,12 @@ import posix
 .}
 
 const
-  LONG_SIZE = sizeof(clong)
+  WORD_SIZE = sizeof(clong)
 
 type
-  LongUnion = object {.union.}
+  lconv = object {.union.}
     val: clong
-    chars: array[LONG_SIZE, cchar]
+    chars: array[WORD_SIZE, cchar]
 
   Registers* = object
     r15*: culong
@@ -188,19 +188,20 @@ template getData*(p: Pid, a: clong): expr =
 proc getString*(p: Pid; a: clong; length: int): cstring =
   result = newString(length)
   var i, j, k: int
-  var data: LongUnion
-  i = length div LONG_SIZE
+  var data: lconv
+
+  i = length div WORD_SIZE
   for x in 0..i-1:
-    data.val = getData(p, a + x * LONG_SIZE)
+    data.val = getData(p, a + x * WORD_SIZE)
     if errno != 0:
       echo errno, " ", strerror(errno)
     for c in data.chars:
       result[j] = c
       inc(j)
 
-  k = length mod LONG_SIZE
+  k = length mod WORD_SIZE
   if k != 0:
-    data.val = getData(p, a + i * LONG_SIZE)
+    data.val = getData(p, a + i * WORD_SIZE)
     if errno != 0:
       echo errno, " ", strerror(errno)
     for c in data.chars:
@@ -209,29 +210,26 @@ proc getString*(p: Pid; a: clong; length: int): cstring =
 
 proc putString*(p: Pid, a: clong, str: string, length: clong) =
   var i, j: int
+  var data: lconv
 
-  var data: LongUnion
-
-  i = length div LONG_SIZE
+  i = length div WORD_SIZE
   while j < i:
-    for k in 0..LONG_SIZE-1:
-      data.chars[k] = str[j*LONG_SIZE + k]
-      discard ptrace(PTRACE_POKEDATA, p, a + j * LONG_SIZE, data.val)
+    for k in 0..WORD_SIZE-1:
+      data.chars[k] = str[j * WORD_SIZE + k]
+      discard ptrace(PTRACE_POKEDATA, p, a + j * WORD_SIZE, data.val)
       if errno != 0:
         echo errno, " ", strerror(errno)
     if errno != 0:
         echo errno, " ", strerror(errno)
     inc(j)
 
-  j = length mod LONG_SIZE
+  j = length mod WORD_SIZE
   if j != 0:
     for k in 0..j-1:
-      data.chars[k] = str[i * LONG_SIZE + k];
-    discard ptrace(PTRACE_POKEDATA, p, a + i * LONG_SIZE, data.val)
+      data.chars[k] = str[i * WORD_SIZE + k];
+    discard ptrace(PTRACE_POKEDATA, p, a + i * WORD_SIZE, data.val)
     if errno != 0:
       echo errno, " ", strerror(errno)
-
-
 
 when isMainModule:
   var child: Pid;
@@ -239,7 +237,7 @@ when isMainModule:
 
   child = fork()
   if child == 0:
-    discard traceme()
+    discard traceMe()
     discard execl("/bin/ls", "ls", nil)
 
   else:
