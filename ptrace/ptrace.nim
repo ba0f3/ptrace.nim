@@ -1,8 +1,8 @@
 import posix
 
 {.pragma: c,
-  importc,
-  header: "sys/ptrace.h"
+ importc,
+ header: "sys/ptrace.h"
 .}
 
 type
@@ -11,21 +11,22 @@ type
     r14*: culong
     r13*: culong
     r12*: culong
-    bp*: culong
-    bx*: culong
+    rbp*: culong
+    rbx*: culong
     r11*: culong
     r10*: culong
     r9*: culong
     r8*: culong
-    ax*: culong
-    xc*: culong
-    dx*: culong
-    si*: culong
-    di*: culong
-    orig_ax*: culong
-    ip*: culong
-    flags*: culong
-    sp*: culong
+    rax*: culong
+    rcx*: culong
+    rdx*: culong
+    rsi*: culong
+    rdi*: culong
+    orig_rax*: culong
+    rip*: culong
+    cs*: culong
+    eflags*: culong
+    rsp*: culong
     ss*: culong
     fs_base*: culong
     gs_base*: culong
@@ -61,6 +62,8 @@ var
   PTRACE_SEIZE* {.c.}: cint
   PTRACE_INTERRUPT* {.c.}: cint
   PTRACE_LISTEN* {.c.}: cint
+
+
 
 const
   PTRACE_EVENT_FORK* = 1
@@ -171,7 +174,7 @@ when isMainModule:
     discard wait(a)
 
     var regs = getRegs(child)
-    echo "orig_ax: ", regs.orig_ax
+    echo "orig_rax: ", regs.orig_rax
     if errno != 0:
       echo errno, " ", strerror(errno)
 

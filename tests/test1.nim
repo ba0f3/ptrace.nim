@@ -7,7 +7,8 @@ var child: Pid
 var orig_eax, eax: clong
 var params: array[3, clong]
 var status: cint
-var insyscall = 0;
+var insyscall = 0
+
 
 child = fork()
 
@@ -27,6 +28,10 @@ else:
         params[1] = ptrace(PTRACE_PEEKUSER, child, RCX, nil)
         params[2] = ptrace(PTRACE_PEEKUSER, child, RDX, nil)
         echo "Write called with ", params[0], ", ", params[1], ", ", params[2]
+
+        let regs: Registers = getRegs(child)
+        echo regs.rbx, " ", regs.rcx, " ", regs.rdx
+
       else:
         eax = ptrace(PTRACE_PEEKUSER, child, RAX, nil)
         echo "Write returned with ", eax
