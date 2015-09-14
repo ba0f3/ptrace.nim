@@ -13,28 +13,28 @@ var insyscall = 0
 child = fork()
 
 if child == 0:
-  discard traceme()
+  discard traceMe()
   discard execl("/bin/ls", "ls")
 else:
   while true:
     discard wait(status)
     if WIFEXITED(status):
       break
-    orig_eax = ptrace(PTRACE_PEEKUSER, child, ORIG_RAX, nil)
+    orig_eax = peekUser(child, ORIG_RAX)
     if orig_eax == SYS_write:
       if insyscall == 0:
         insyscall = 1
-        params[0] = ptrace(PTRACE_PEEKUSER, child, RBX, nil)
-        params[1] = ptrace(PTRACE_PEEKUSER, child, RCX, nil)
-        params[2] = ptrace(PTRACE_PEEKUSER, child, RDX, nil)
+        params[0] = peekUser(child, RBX)
+        params[1] = peekUser(child, RCX)
+        params[2] = peekUser(child, RDX)
         echo "Write called with ", params[0], ", ", params[1], ", ", params[2]
 
         let regs: Registers = getRegs(child)
         echo regs.rbx, " ", regs.rcx, " ", regs.rdx
 
       else:
-        eax = ptrace(PTRACE_PEEKUSER, child, RAX, nil)
+        eax = peekUser(child, RAX)
         echo "Write returned with ", eax
         insyscall = 0
 
-    discard ptrace(PTRACE_SYSCALL, child, 0, nil)
+    discard ptrace(PTRACE_SYSCALL, child, 0, 0)

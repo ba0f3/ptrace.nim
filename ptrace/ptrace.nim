@@ -5,7 +5,14 @@ import posix
  header: "sys/ptrace.h"
 .}
 
+const
+  LONG_SIZE = sizeof(clong)
+
 type
+  LongUnion = object {.union.}
+    val: clong
+    chars: array[LONG_SIZE, cchar]
+
   Registers* = object
     r15*: culong
     r14*: culong
@@ -134,58 +141,96 @@ else:
     FS* = 200
     GS* = 208
 
-proc ptrace*(request: cint, pid: Pid, a: int, data: pointer): clong {.c.}
+when hostCPU == "i386":
+  const
+    SYSCALL_NUM* = ORIG_EAX
+    SYSCALL_ARG1* = EBX
+    SYSCALL_ARG2* = ECX
+    SYSCALL_ARG3* = EDX
+    SYSCALL_RET_OFFSET* = EAX
+else:
+  const
+    SYSCALL_NUM* = ORIG_RAX
+    SYSCALL_ARG1* = RDI
+    SYSCALL_ARG2* = RSI
+    SYSCALL_ARG3* = RDX
+    SYSCALL_RET_OFFSET* = RAX
+
+proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.c.}
 
 template setOptions*(p: Pid, opts: ptr cint): expr =
   ptrace(PTRACE_SETOPTIONS, p, 0, opts)
 
 proc getRegs*(p: int): Registers {.inline.} =
-  discard ptrace(PTRACE_GETREGS, p, 0, addr result)
+  discard ptrace(PTRACE_GETREGS, p, 0, result)
 
 template setRegs*(p: Pid, regs: ptr Registers): expr =
   ptrace(PTRACE_SETREGS, p, 0, regs)
 
 template attach*(p: Pid): expr =
-  ptrace(PTRACE_ATTACH, p, 0, nil)
+  ptrace(PTRACE_ATTACH, p, 0, 0)
 
-template detach*(p: Pid, signal: ptr cint): expr =
+template detach*(p: Pid, signal: clong): expr =
   ptrace(PTRACE_DETACH, p, 0, signal)
 
-template cont*(p: Pid, signal: ptr cint): expr =
+template cont*(p: Pid, signal: clong): expr =
   ptrace(PTRACE_CONT, p, 0, signal)
 
 template traceMe*(): expr =
-  ptrace(PTRACE_TRACEME, 0, 0, nil)
+  ptrace(PTRACE_TRACEME, 0, 0, 0)
 
-template getData*(p: Pid, address: clong): expr =
-  ptrace(PTRACE_PEEKDATA, p, address, nil)
+template peekUser*(p: Pid, a: clong): expr =
+  ptrace(PTRACE_PEEKUSER, p, a, 0)
 
-proc getString*(child: Pid; a: clong; length: int): cstring =
+template getData*(p: Pid, a: clong): expr =
+  ptrace(PTRACE_PEEKDATA, p, a, 0)
+
+proc getString*(p: Pid; a: clong; length: int): cstring =
   result = newString(length)
   var i, j, k: int
-  const long_size = sizeof(a)
-  type
-    u = object {.union.}
-      val: clong
-      chars: array[long_size, cchar]
-
-  var data: u
-  i = length div long_size
+  var data: LongUnion
+  i = length div LONG_SIZE
   for x in 0..i-1:
-    data.val = getData(child, a + x * 4)
+    data.val = getData(p, a + x * LONG_SIZE)
+    if errno != 0:
+      echo errno, " ", strerror(errno)
     for c in data.chars:
       result[j] = c
       inc(j)
 
-  k = length mod long_size
+  k = length mod LONG_SIZE
   if k != 0:
-    data.val = getData(child, a + i * 4)
+    data.val = getData(p, a + i * LONG_SIZE)
+    if errno != 0:
+      echo errno, " ", strerror(errno)
     for c in data.chars:
       result[j] = c
       inc(j)
-  result[length-1] = '\0'
 
-  echo "len ", result.len
+proc putString*(p: Pid, a: clong, str: string, length: clong) =
+  var i, j: int
+
+  var data: LongUnion
+
+  i = length div LONG_SIZE
+  while j < i:
+    for k in 0..LONG_SIZE-1:
+      data.chars[k] = str[j*LONG_SIZE + k]
+      discard ptrace(PTRACE_POKEDATA, p, a + j * LONG_SIZE, data.val)
+      if errno != 0:
+        echo errno, " ", strerror(errno)
+    if errno != 0:
+        echo errno, " ", strerror(errno)
+    inc(j)
+
+  j = length mod LONG_SIZE
+  if j != 0:
+    for k in 0..j-1:
+      data.chars[k] = str[i * LONG_SIZE + k];
+    discard ptrace(PTRACE_POKEDATA, p, a + i * LONG_SIZE, data.val)
+    if errno != 0:
+      echo errno, " ", strerror(errno)
+
 
 
 when isMainModule:
@@ -206,7 +251,7 @@ when isMainModule:
     if errno != 0:
       echo errno, " ", strerror(errno)
 
-    orig_ax = ptrace(PTRACE_PEEKUSER, child, ORIG_RAX, nil)
+    orig_ax = peekUser(child, SYSCALL_NUM)
     if errno != 0:
       echo errno, " ", strerror(errno)
     echo "The child made a system call: ", orig_ax

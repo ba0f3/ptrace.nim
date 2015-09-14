@@ -1,41 +1,37 @@
 import posix
+import unicode
 import ../ptrace/ptrace
 import ../ptrace/syscall
 
 var child: Pid
-var orig_eax, eax: clong
+var syscallNo: clong
 var params: array[3, clong]
 var status: cint
-var insyscall = 0
-var str: cstring
+var toggle = false
 
 child = fork()
 
 if child == 0:
   discard traceme()
-  discard execl("/bin/ls", "ls")
+  discard execl("/bin/ls", "ls", nil)
 else:
   while true:
     discard wait(status)
     if WIFEXITED(status):
       break
-    orig_eax = ptrace(PTRACE_PEEKUSER, child, ORIG_RAX, nil)
-    if orig_eax == SYS_write:
-      if insyscall == 0:
-        insyscall = 1
-        params[0] = ptrace(PTRACE_PEEKUSER, child, RBX, nil)
-        params[1] = ptrace(PTRACE_PEEKUSER, child, RCX, nil)
-        params[2] = ptrace(PTRACE_PEEKUSER, child, RDX, nil)
-        echo "Write called with ", params[0], ", ", params[1], ", ", params[2]
-
-        let regs: Registers = getRegs(child)
-        echo regs.rbx, " ", regs.rcx, " ", regs.rdx
-        str = getString(child, params[1], params[2])
-        echo str
-
+    syscallNo = peekUser(child, SYSCALL_NUM)
+    if syscallNo == SYS_write:
+      if not toggle:
+        toggle = true
+        params[0] = peekUser(child, SYSCALL_ARG1)
+        params[1] = peekUser(child, SYSCALL_ARG2)
+        params[2] = peekUser(child, SYSCALL_ARG3)
+        var str = getString(child, params[1], params[2])
+        str = reversed($str)
+        putString(child, params[1], $str, params[2])
       else:
-        eax = ptrace(PTRACE_PEEKUSER, child, RAX, nil)
-        echo "Write returned with ", eax
-        insyscall = 0
+        toggle = false
+    else:
+      echo syscallNo
 
-    discard ptrace(PTRACE_SYSCALL, child, 0, nil)
+    discard ptrace(PTRACE_SYSCALL, child, 0, 0)
