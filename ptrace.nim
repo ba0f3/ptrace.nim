@@ -79,7 +79,54 @@ const
   PTRACE_O_MASK* = 0x000000ff or PTRACE_O_EXITKILL
 
 
+when hostCPU == "i386":
+  const
+    EBX* = 0
+    ECX* = 1
+    EDX* = 2
+    ESI* = 3
+    EDI* = 4
+    EBP* = 5
+    EAX* = 6
+    DS* = 7
+    ES* = 8
+    FS* = 9
+    GS* = 10
+    ORIG_EAX* = 11
+    EIP* = 12
+    CS* = 13
+    EFL* = 14
+    UESP* = 15
+    SS* =16
+    FRAME_SIZE* = 17
+else:
+  const
+    R15* = 0
+    R14* = 8
+    R13* = 16
+    R12* = 24
+    RBP* = 32
+    RBX* = 40
+    R11* = 48
+    R10* = 56
+    R9* = 64
+    R8* = 72
+    RAX* = 80
+    RCX* = 88
+    RDX* = 96
+    RSI* = 104
+    RDI* = 112
+    ORIG_RAX* = 120
+    RIP* = 128
+    CS* = 136
+    EFLAGS* = 144
+    RSP* = 152
+    SS* = 160
+    ARGOFFSET* = R11
+    FRAME_SIZE* = 168
+
 {.pragma: c,
+  cdecl,
   importc,
   header: "sys/ptrace.h"
 .}
@@ -123,9 +170,14 @@ when isMainModule:
     discard execl("/bin/ls", "ls", nil)
 
   else:
-    var a: cint = 0
+    var a: cint
     echo wait(a)
-    orig_ax = ptrace(PTRACE_PEEKUSER, child, 4 * 15, nil)
+
+    var regs = getRegs(child)
+    echo "orig_ax: ", regs.orig_ax
+    echo errno, " ", strerror(errno)
+
+    orig_ax = ptrace(PTRACE_PEEKUSER, child, ORIG_RAX, nil)
     echo errno, " ", strerror(errno)
     echo "The child made a system call: ", orig_ax
     discard cont(child, nil)
