@@ -1,5 +1,10 @@
 import posix
 
+{.pragma: c,
+  importc,
+  header: "sys/ptrace.h"
+.}
+
 type
   Registers* = object
     r15*: culong
@@ -29,34 +34,35 @@ type
     fs*: culong
     gs*: culong
 
-const
-  PTRACE_TRACEME* = 0
-  PTRACE_PEEKTEXT* = 1
-  PTRACE_PEEKDATA* = 2
-  PTRACE_PEEKUSER* = 3
-  PTRACE_POKETEXT* = 4
-  PTRACE_POKEDATA* = 5
-  PTRACE_POKEUSER* = 6
-  PTRACE_CONT* = 7
-  PTRACE_KILL* = 8
-  PTRACE_SINGLESTEP* = 9
-  PTRACE_GETREGS* = 12
-  PTRACE_SETREGS* = 13
-  PTRACE_GETFPREGS* = 14
-  PTRACE_SETFPREGS* = 15
-  PTRACE_ATTACH* = 16
-  PTRACE_DETACH* = 17
-  PTRACE_GETFPXREGS* = 18
-  PTRACE_SETFPXREGS* = 19
-  PTRACE_SYSCALL* = 24
-  PTRACE_SETOPTIONS* = 0x4200
-  PTRACE_GETEVENTMSG* = 0x4201
-  PTRACE_GETSIGINFO* = 0x4202
-  PTRACE_SETSIGINFO* = 0x4203
-  PTRACE_SEIZE* = 0x4206
-  PTRACE_INTERRUPT* = 0x4207
-  PTRACE_LISTEN* = 0x4208
+var
+  PTRACE_TRACEME* {.c.}: cint
+  PTRACE_PEEKTEXT* {.c.}: cint
+  PTRACE_PEEKDATA* {.c.}: cint
+  PTRACE_PEEKUSER* {.c.}: cint
+  PTRACE_POKETEXT* {.c.}: cint
+  PTRACE_POKEDATA* {.c.}: cint
+  PTRACE_POKEUSER* {.c.}: cint
+  PTRACE_CONT* {.c.}: cint
+  PTRACE_KILL* {.c.}: cint
+  PTRACE_SINGLESTEP* {.c.}: cint
+  PTRACE_GETREGS* {.c.}: cint
+  PTRACE_SETREGS* {.c.}: cint
+  PTRACE_GETFPREGS* {.c.}: cint
+  PTRACE_SETFPREGS* {.c.}: cint
+  PTRACE_ATTACH* {.c.}: cint
+  PTRACE_DETACH* {.c.}: cint
+  PTRACE_GETFPXREGS* {.c.}: cint
+  PTRACE_SETFPXREGS* {.c.}: cint
+  PTRACE_SYSCALL* {.c.}: cint
+  PTRACE_SETOPTIONS* {.c.}: cint
+  PTRACE_GETEVENTMSG* {.c.}: cint
+  PTRACE_GETSIGINFO* {.c.}: cint
+  PTRACE_SETSIGINFO* {.c.}: cint
+  PTRACE_SEIZE* {.c.}: cint
+  PTRACE_INTERRUPT* {.c.}: cint
+  PTRACE_LISTEN* {.c.}: cint
 
+const
   PTRACE_EVENT_FORK* = 1
   PTRACE_EVENT_VFORK* = 2
   PTRACE_EVENT_CLONE* = 3
@@ -98,7 +104,6 @@ when hostCPU == "i386":
     EFL* = 14
     UESP* = 15
     SS* =16
-    FRAME_SIZE* = 17
 else:
   const
     R15* = 0
@@ -122,62 +127,56 @@ else:
     EFLAGS* = 144
     RSP* = 152
     SS* = 160
-    ARGOFFSET* = R11
-    FRAME_SIZE* = 168
+    FS_BASE* = 168
+    GS_BASE* = 176
+    DS* = 184
+    ES* = 192
+    FS* = 200
+    GS* = 208
 
-{.pragma: c,
-  cdecl,
-  importc,
-  header: "sys/ptrace.h"
-.}
+proc ptrace*(request: cint, pid: Pid, a: cint, data: pointer): clong {.c.}
 
-proc ptrace*(request: cint, pid: Pid, a: ptr cint, data: pointer): clong {.c.}
+template setOptions*(p: Pid, opts: ptr cint): expr =
+  ptrace(PTRACE_SETOPTIONS, p, 0, opts)
 
-proc ptrace*(request: cint, pid: Pid, a: int, data: pointer): clong {.inline.} =
-  var a = a.cint
-  ptrace(request, pid, addr a, data)
+proc getRegs*(p: int): Registers {.inline.} =
+  discard ptrace(PTRACE_GETREGS, p, 0, addr result)
 
+template setRegs*(p: Pid, regs: ptr Registers): expr =
+  ptrace(PTRACE_SETREGS, p, 0, regs)
 
-proc setOptions*(p: Pid, opts: ptr cint): clong =
-  ptrace(PTRACE_SETOPTIONS, p, nil, opts)
+template attach*(p: Pid): expr =
+  ptrace(PTRACE_ATTACH, p, 0, nil)
 
-proc getRegs*(p: int): Registers =
-  discard ptrace(PTRACE_GETREGS, p, nil, addr result)
+template detach*(p: Pid, signal: ptr cint): expr =
+  ptrace(PTRACE_DETACH, p, 0, signal)
 
-proc setRegs*(p: Pid, regs: ptr Registers): clong =
-  ptrace(PTRACE_SETREGS, p, nil, regs)
+template cont*(p: Pid, signal: ptr cint): expr =
+  ptrace(PTRACE_CONT, p, 0, signal)
 
-proc attach*(p: Pid): clong =
-  ptrace(PTRACE_ATTACH, p, nil, nil)
-
-proc detach*(p: Pid, signal: ptr cint): clong =
-  ptrace(PTRACE_DETACH, p, nil, signal)
-
-proc cont*(p: Pid, signal: ptr cint): clong =
-  ptrace(PTRACE_CONT, p, nil, signal)
-
-proc traceme*(): clong =
-  ptrace(PTRACE_TRACEME, 0, nil, nil)
+template traceme*(): expr =
+  ptrace(PTRACE_TRACEME, 0, 0, nil)
 
 when isMainModule:
   var child: Pid;
   var orig_ax: clong;
 
   child = fork()
-
   if child == 0:
     discard traceme()
     discard execl("/bin/ls", "ls", nil)
 
   else:
     var a: cint
-    echo wait(a)
+    discard wait(a)
 
     var regs = getRegs(child)
     echo "orig_ax: ", regs.orig_ax
-    echo errno, " ", strerror(errno)
+    if errno != 0:
+      echo errno, " ", strerror(errno)
 
     orig_ax = ptrace(PTRACE_PEEKUSER, child, ORIG_RAX, nil)
-    echo errno, " ", strerror(errno)
+    if errno != 0:
+      echo errno, " ", strerror(errno)
     echo "The child made a system call: ", orig_ax
     discard cont(child, nil)
