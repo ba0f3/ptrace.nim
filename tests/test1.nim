@@ -1,5 +1,6 @@
 import posix
-import ../ptrace
+import ../ptrace/ptrace
+import ../ptrace/syscall
 
 
 var child: Pid
@@ -12,50 +13,23 @@ child = fork()
 
 if child == 0:
   discard traceme()
-  execl("/bin/ls", "ls", nil)
+  discard execl("/bin/ls", "ls")
 else:
   while true:
     discard wait(status)
-    orig_eax = ptrace(PTRACE_PEEKUSER, child, 4 * 15, nil)
-    if orig_eax == 4:
+    if WIFEXITED(status):
+      break
+    orig_eax = ptrace(PTRACE_PEEKUSER, child, ORIG_RAX, nil)
+    if orig_eax == SYS_write:
       if insyscall == 0:
         insyscall = 1
-        params[0] = ptrace(PTRACE_PEEKUSER, child, 4 * EBX, nil)
+        params[0] = ptrace(PTRACE_PEEKUSER, child, RBX, nil)
+        params[1] = ptrace(PTRACE_PEEKUSER, child, RCX, nil)
+        params[2] = ptrace(PTRACE_PEEKUSER, child, RDX, nil)
+        echo "Write called with ", params[0], ", ", params[1], ", ", params[2]
+      else:
+        eax = ptrace(PTRACE_PEEKUSER, child, RAX, nil)
+        echo "Write returned with ", eax
+        insyscall = 0
 
-
-discard """
-
-
-          if(orig_eax == SYS_write) {
-             if(insyscall == 0) {
-                /* Syscall entry */
-                insyscall = 1;
-                params[0] = ptrace(PTRACE_PEEKUSER,
-                                   child, 4 * EBX,
-                                   NULL);
-                params[1] = ptrace(PTRACE_PEEKUSER,
-                                   child, 4 * ECX,
-                                   NULL);
-                params[2] = ptrace(PTRACE_PEEKUSER,
-                                   child, 4 * EDX,
-                                   NULL);
-                printf("Write called with "
-                       "%ld, %ld, %ld\n",
-                       params[0], params[1],
-                       params[2]);
-                }
-          else { /* Syscall exit */
-                eax = ptrace(PTRACE_PEEKUSER,
-                             child, 4 * EAX, NULL);
-                    printf("Write returned "
-                           "with %ld\n", eax);
-                    insyscall = 0;
-                }
-            }
-            ptrace(PTRACE_SYSCALL,
-                   child, NULL, NULL);
-        }
-    }
-    return 0;
-}
-"""
+    discard ptrace(PTRACE_SYSCALL, child, 0, nil)
