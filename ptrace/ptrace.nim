@@ -63,8 +63,6 @@ var
   PTRACE_INTERRUPT* {.c.}: cint
   PTRACE_LISTEN* {.c.}: cint
 
-
-
 const
   PTRACE_EVENT_FORK* = 1
   PTRACE_EVENT_VFORK* = 2
@@ -86,7 +84,6 @@ const
   PTRACE_O_TRACESECCOMP* = 1 shl PTRACE_EVENT_SECCOMP
   PTRACE_O_EXITKILL* = 1 shl 20
   PTRACE_O_MASK* = 0x000000ff or PTRACE_O_EXITKILL
-
 
 when hostCPU == "i386":
   const
@@ -137,7 +134,7 @@ else:
     FS* = 200
     GS* = 208
 
-proc ptrace*(request: cint, pid: Pid, a: cint, data: pointer): clong {.c.}
+proc ptrace*(request: cint, pid: Pid, a: int, data: pointer): clong {.c.}
 
 template setOptions*(p: Pid, opts: ptr cint): expr =
   ptrace(PTRACE_SETOPTIONS, p, 0, opts)
@@ -157,8 +154,39 @@ template detach*(p: Pid, signal: ptr cint): expr =
 template cont*(p: Pid, signal: ptr cint): expr =
   ptrace(PTRACE_CONT, p, 0, signal)
 
-template traceme*(): expr =
+template traceMe*(): expr =
   ptrace(PTRACE_TRACEME, 0, 0, nil)
+
+template getData*(p: Pid, address: clong): expr =
+  ptrace(PTRACE_PEEKDATA, p, address, nil)
+
+proc getString*(child: Pid; a: clong; length: int): cstring =
+  result = newString(length)
+  var i, j, k: int
+  const long_size = sizeof(a)
+  type
+    u = object {.union.}
+      val: clong
+      chars: array[long_size, cchar]
+
+  var data: u
+  i = length div long_size
+  for x in 0..i-1:
+    data.val = getData(child, a + x * 4)
+    for c in data.chars:
+      result[j] = c
+      inc(j)
+
+  k = length mod long_size
+  if k != 0:
+    data.val = getData(child, a + i * 4)
+    for c in data.chars:
+      result[j] = c
+      inc(j)
+  result[length-1] = '\0'
+
+  echo "len ", result.len
+
 
 when isMainModule:
   var child: Pid;
