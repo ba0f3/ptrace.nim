@@ -6,12 +6,16 @@ import posix
 .}
 
 const
-  WORD_SIZE = sizeof(clong)
+  WORD_SIZE* = sizeof(clong)
 
 type
-  lconv = object {.union.}
-    val: clong
-    chars: array[WORD_SIZE, cchar]
+  CValue* = object {.union.}
+    lg*: clong
+    d*: cdouble
+    f*: cfloat
+    i*: cint
+    ui*: cuint
+    chars*: array[WORD_SIZE, cchar]
 
   Registers* = object
     r15*: culong
@@ -168,16 +172,22 @@ template setRegs*(p: Pid, regs: ptr Registers): expr =
   ptrace(PTRACE_SETREGS, p, 0, regs)
 
 template attach*(p: Pid): expr =
-  ptrace(PTRACE_ATTACH, p, 0, 0)
+  discard ptrace(PTRACE_ATTACH, p, 0, 0)
 
 template detach*(p: Pid, signal: clong): expr =
-  ptrace(PTRACE_DETACH, p, 0, signal)
+  discard ptrace(PTRACE_DETACH, p, 0, signal)
 
 template cont*(p: Pid, signal: clong): expr =
   ptrace(PTRACE_CONT, p, 0, signal)
 
-template traceMe*(): expr =
-  ptrace(PTRACE_TRACEME, 0, 0, 0)
+proc traceMe*() {.inline.} =
+  discard ptrace(PTRACE_TRACEME, 0, 0, 0)
+
+proc syscall*(p: Pid) {.inline.} =
+  discard ptrace(PTRACE_SYSCALL, p, 0, 0)
+
+proc singleStep*(p: Pid) {.inline.} =
+  discard ptrace(PTRACE_SINGLESTEP, p, 0, 0)
 
 template peekUser*(p: Pid, a: clong): expr =
   ptrace(PTRACE_PEEKUSER, p, a, 0)
@@ -188,11 +198,11 @@ template getData*(p: Pid, a: clong): expr =
 proc getString*(p: Pid; a: clong; length: int): cstring =
   result = newString(length)
   var i, j, k: int
-  var data: lconv
+  var data: CValue
 
   i = length div WORD_SIZE
   for x in 0..i-1:
-    data.val = getData(p, a + x * WORD_SIZE)
+    data.lg = getData(p, a + x * WORD_SIZE)
     if errno != 0:
       echo errno, " ", strerror(errno)
     for c in data.chars:
@@ -201,7 +211,7 @@ proc getString*(p: Pid; a: clong; length: int): cstring =
 
   k = length mod WORD_SIZE
   if k != 0:
-    data.val = getData(p, a + i * WORD_SIZE)
+    data.lg = getData(p, a + i * WORD_SIZE)
     if errno != 0:
       echo errno, " ", strerror(errno)
     for c in data.chars:
@@ -210,13 +220,13 @@ proc getString*(p: Pid; a: clong; length: int): cstring =
 
 proc putString*(p: Pid, a: clong, str: string, length: clong) =
   var i, j: int
-  var data: lconv
+  var data: CValue
 
   i = length div WORD_SIZE
   while j < i:
     for k in 0..WORD_SIZE-1:
       data.chars[k] = str[j * WORD_SIZE + k]
-      discard ptrace(PTRACE_POKEDATA, p, a + j * WORD_SIZE, data.val)
+      discard ptrace(PTRACE_POKEDATA, p, a + j * WORD_SIZE, data.lg)
       if errno != 0:
         echo errno, " ", strerror(errno)
     if errno != 0:
@@ -227,7 +237,7 @@ proc putString*(p: Pid, a: clong, str: string, length: clong) =
   if j != 0:
     for k in 0..j-1:
       data.chars[k] = str[i * WORD_SIZE + k];
-    discard ptrace(PTRACE_POKEDATA, p, a + i * WORD_SIZE, data.val)
+    discard ptrace(PTRACE_POKEDATA, p, a + i * WORD_SIZE, data.lg)
     if errno != 0:
       echo errno, " ", strerror(errno)
 

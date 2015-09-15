@@ -12,7 +12,7 @@ var toggle = false
 child = fork()
 
 if child == 0:
-  discard traceme()
+  traceMe()
   discard execl("/bin/ls", "ls", nil)
 else:
   while true:
@@ -32,4 +32,4 @@ else:
       else:
         toggle = false
 
-    discard ptrace(PTRACE_SYSCALL, child, 0, 0)
+    syscall(child)
