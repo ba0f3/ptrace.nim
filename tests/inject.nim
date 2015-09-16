@@ -33,12 +33,11 @@ putData(tracee, regs.rip.clong, code, le)
 
 setRegs(tracee, addr regs)
 
+
 cont(tracee)
 wait(nil)
 
 echo "The process stopped, putting back the original instructions"
-echo "Press <enter> to continue"
-discard getchar()
 
 putData(tracee, regs.rip.clong, backup, le)
 if errno != 0:

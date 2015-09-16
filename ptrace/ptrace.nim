@@ -17,35 +17,6 @@ type
     ui*: cuint
     chars*: array[WORD_SIZE, cchar]
 
-  Registers* = object
-    r15*: culong
-    r14*: culong
-    r13*: culong
-    r12*: culong
-    rbp*: culong
-    rbx*: culong
-    r11*: culong
-    r10*: culong
-    r9*: culong
-    r8*: culong
-    rax*: culong
-    rcx*: culong
-    rdx*: culong
-    rsi*: culong
-    rdi*: culong
-    orig_rax*: culong
-    rip*: culong
-    cs*: culong
-    eflags*: culong
-    rsp*: culong
-    ss*: culong
-    fs_base*: culong
-    gs_base*: culong
-    ds*: culong
-    es*: culong
-    fs*: culong
-    gs*: culong
-
 var
   PTRACE_TRACEME* {.c.}: cint
   PTRACE_PEEKTEXT* {.c.}: cint
@@ -97,6 +68,24 @@ const
   PTRACE_O_MASK* = 0x000000ff or PTRACE_O_EXITKILL
 
 when hostCPU == "i386":
+  type
+    Registers* = object
+      ebx*: clong
+      ecx*: clong
+      edx*: clong
+      esi*: clong
+      edi*: clong
+      ebp*: clong
+      eax*: clong
+      xds*: clong
+      xes*: clong
+      xfs*: clong
+      xgs*: clong
+      origin_eax*: clong
+      eip*: clong
+      eflags*: clong
+      esp*: clong
+      xss*: clong
   const
     EBX* = 0
     ECX* = 1
@@ -116,6 +105,37 @@ when hostCPU == "i386":
     UESP* = 15
     SS* =16
 else:
+
+  type
+    Registers* = object
+      r15*: culong
+      r14*: culong
+      r13*: culong
+      r12*: culong
+      rbp*: culong
+      rbx*: culong
+      r11*: culong
+      r10*: culong
+      r9*: culong
+      r8*: culong
+      rax*: culong
+      rcx*: culong
+      rdx*: culong
+      rsi*: culong
+      rdi*: culong
+      orig_rax*: culong
+      rip*: culong
+      cs*: culong
+      eflags*: culong
+      rsp*: culong
+      ss*: culong
+      fs_base*: culong
+      gs_base*: culong
+      ds*: culong
+      es*: culong
+      fs*: culong
+      gs*: culong
+
   const
     R15* = 0
     R14* = 8
