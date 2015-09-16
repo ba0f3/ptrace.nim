@@ -1,8 +1,8 @@
 [Package]
 name          = "ptrace"
-version       = "0.0.2"
+version       = "0.0.3"
 author        = "Huy Doan"
-description   = "ptrace wrapper for Nim"
+description   = "ptrace wrapper and helpers for Nim"
 license       = "MIT"
 
 skipDirs      = "tests"
