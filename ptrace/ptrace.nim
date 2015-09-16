@@ -160,7 +160,7 @@ else:
     SYSCALL_ARG3* = RDX
     SYSCALL_RET_OFFSET* = RAX
 
-proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.c.}
+proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.c, discardable.}
 
 template setOptions*(p: Pid, opts: ptr cint): expr =
   ptrace(PTRACE_SETOPTIONS, p, 0, opts)
@@ -172,22 +172,22 @@ template setRegs*(p: Pid, regs: ptr Registers): expr =
   ptrace(PTRACE_SETREGS, p, 0, regs)
 
 template attach*(p: Pid): expr =
-  discard ptrace(PTRACE_ATTACH, p, 0, 0)
+  ptrace(PTRACE_ATTACH, p, 0, 0)
 
-template detach*(p: Pid, signal: clong): expr =
-  discard ptrace(PTRACE_DETACH, p, 0, signal)
+template detach*(p: Pid, signal: clong = 0): expr =
+  ptrace(PTRACE_DETACH, p, 0, signal)
 
-template cont*(p: Pid, signal: clong): expr =
+template cont*(p: Pid, signal: clong = 0): expr =
   ptrace(PTRACE_CONT, p, 0, signal)
 
 proc traceMe*() {.inline.} =
-  discard ptrace(PTRACE_TRACEME, 0, 0, 0)
+  ptrace(PTRACE_TRACEME, 0, 0, 0)
 
 proc syscall*(p: Pid) {.inline.} =
-  discard ptrace(PTRACE_SYSCALL, p, 0, 0)
+  ptrace(PTRACE_SYSCALL, p, 0, 0)
 
 proc singleStep*(p: Pid) {.inline.} =
-  discard ptrace(PTRACE_SINGLESTEP, p, 0, 0)
+  ptrace(PTRACE_SINGLESTEP, p, 0, 0)
 
 template peekUser*(p: Pid, a: clong): expr =
   ptrace(PTRACE_PEEKUSER, p, a, 0)
@@ -195,8 +195,7 @@ template peekUser*(p: Pid, a: clong): expr =
 template getData*(p: Pid, a: clong): expr =
   ptrace(PTRACE_PEEKDATA, p, a, 0)
 
-proc getString*(p: Pid; a: clong; length: int): cstring =
-  result = newString(length)
+proc getData*[T](p: Pid, a: clong, buf: var T, length: int) =
   var i, j, k: int
   var data: CValue
 
@@ -206,7 +205,9 @@ proc getString*(p: Pid; a: clong; length: int): cstring =
     if errno != 0:
       echo errno, " ", strerror(errno)
     for c in data.chars:
-      result[j] = c
+      if j >= length:
+        break
+      buf[j] = c
       inc(j)
 
   k = length mod WORD_SIZE
@@ -215,18 +216,27 @@ proc getString*(p: Pid; a: clong; length: int): cstring =
     if errno != 0:
       echo errno, " ", strerror(errno)
     for c in data.chars:
-      result[j] = c
+      if j >= length:
+        break
+      buf[j] = c
       inc(j)
 
-proc putString*(p: Pid, a: clong, str: string, length: clong) =
-  var i, j: int
+proc getString*(p: Pid, a: clong, length: int): cstring =
+    result = newString(length)
+    getData(p, a, result, length)
+
+proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
+  var i, j, idx: int
   var data: CValue
 
   i = length div WORD_SIZE
   while j < i:
     for k in 0..WORD_SIZE-1:
-      data.chars[k] = str[j * WORD_SIZE + k]
-      discard ptrace(PTRACE_POKEDATA, p, a + j * WORD_SIZE, data.lg)
+      idx = j * WORD_SIZE + k
+      if idx >= length:
+        break
+      data.chars[k] = (char)buf[idx]
+      ptrace(PTRACE_POKEDATA, p, a + j * WORD_SIZE, data.lg)
       if errno != 0:
         echo errno, " ", strerror(errno)
     if errno != 0:
@@ -236,10 +246,16 @@ proc putString*(p: Pid, a: clong, str: string, length: clong) =
   j = length mod WORD_SIZE
   if j != 0:
     for k in 0..j-1:
-      data.chars[k] = str[i * WORD_SIZE + k];
-    discard ptrace(PTRACE_POKEDATA, p, a + i * WORD_SIZE, data.lg)
+      idx = i * WORD_SIZE + k
+      if idx >= length:
+        break
+      data.chars[k] = (char)buf[idx]
+    ptrace(PTRACE_POKEDATA, p, a + i * WORD_SIZE, data.lg)
     if errno != 0:
       echo errno, " ", strerror(errno)
+
+template putString*(p: Pid, a: clong, str: string, length: clong) =
+  putData(p, a, str, length)
 
 when isMainModule:
   var child: Pid;

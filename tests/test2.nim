@@ -16,7 +16,7 @@ if child == 0:
   discard execl("/bin/ls", "ls", nil)
 else:
   while true:
-    discard wait(status)
+    wait(addr status)
     if WIFEXITED(status):
       break
     syscallNo = peekUser(child, SYSCALL_NUM)

@@ -25,7 +25,7 @@ if errno != 0:
   quit($strerror(errno), errno.int)
 
 while true:
-  discard wait(status)
+  discard wait(addr status)
   if WIFEXITED(status):
     break
 

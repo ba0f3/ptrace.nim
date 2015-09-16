@@ -10,8 +10,9 @@ var child: Pid
 child = fork()
 if child == 0:
   traceMe()
-  #discard execl("./dummy1", "dummy1")
-  discard execl("/bin/ls", "ls")
+  echo execl("/bin/ls", "la")
+  if errno != 0:
+    echo strerror(errno)
 else:
   var status: cint
   var regs: Registers
@@ -19,8 +20,8 @@ else:
   var ins: clong
 
   while true:
-    discard wait(status)
-
+    wait(addr status)
+    echo status
     if WIFEXITED(status):
       break
 
