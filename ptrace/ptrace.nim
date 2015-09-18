@@ -81,7 +81,7 @@ when hostCPU == "i386":
       xes*: clong
       xfs*: clong
       xgs*: clong
-      origin_eax*: clong
+      orig_eax*: clong
       eip*: clong
       eflags*: clong
       esp*: clong
@@ -185,8 +185,8 @@ proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.c, discarda
 template setOptions*(p: Pid, opts: ptr cint): expr =
   ptrace(PTRACE_SETOPTIONS, p, 0, opts)
 
-proc getRegs*(p: int): Registers {.inline.} =
-  discard ptrace(PTRACE_GETREGS, p, 0, result)
+template getRegs*(p: int, regs: ptr Registers): expr =
+  ptrace(PTRACE_GETREGS, p, 0, regs)
 
 template setRegs*(p: Pid, regs: ptr Registers): expr =
   ptrace(PTRACE_SETREGS, p, 0, regs)
