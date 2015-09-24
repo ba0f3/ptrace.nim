@@ -46,9 +46,9 @@ putData(tracee, address, code, LENGTH)
 for x in backup:
   echo x.ord
 
-oldregs = regs
 copyMem(addr oldregs, addr regs, sizeof(regs))
 regs.eip = address
+regs.eax = SYS_write
 
 echo regs
 echo oldregs
