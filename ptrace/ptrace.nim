@@ -244,21 +244,21 @@ proc getString*(p: Pid, a: clong): string =
   var
     i = 0
     data: CValue
-  result = newString(64)
+  result = newString(32)
 
   while true:
     data.lg = getData(p, a + i)
 
     for j in 0..WORD_SIZE-1:
       if data.chars[j] == '\0':
+        setLen(result, i + j)
         return result
 
       if i + j > result.len:
-        setLen(result, result.len + WORD_SIZE*2)
+        setLen(result, result.len + WORD_SIZE)
       result[i + j] = data.chars[j]
 
     i.inc(WORD_SIZE)
-
 
 proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
   var i, j, idx: int
