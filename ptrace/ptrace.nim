@@ -240,6 +240,26 @@ proc getString*(p: Pid, a: clong, length: int): cstring =
     result = newString(length)
     getData(p, a, result, length)
 
+proc getString*(p: Pid, a: clong): string =
+  var
+    i = 0
+    data: CValue
+  result = newString(64)
+
+  while true:
+    data.lg = getData(p, a + i)
+
+    for j in 0..WORD_SIZE-1:
+      if data.chars[j] == '\0':
+        return result
+
+      if i + j > result.len:
+        setLen(result, result.len + WORD_SIZE*2)
+      result[i + j] = data.chars[j]
+
+    i.inc(WORD_SIZE)
+
+
 proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
   var i, j, idx: int
   var data: CValue
