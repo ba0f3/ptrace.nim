@@ -1,4 +1,4 @@
-{.emit: "static void init(void) __attribute__((constructor));".}
+#{.emit: "static void init(void) __attribute__((constructor));".}
 
-proc init*() {.exportc.} =
+proc puts*() {.exportc.} =
   echo("I am loaded and running.\x0A")

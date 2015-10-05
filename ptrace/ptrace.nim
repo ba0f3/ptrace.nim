@@ -1,4 +1,4 @@
-import posix, strutils
+import posix, strutils, math
 
 const
   WORD_SIZE* = sizeof(clong)
@@ -206,10 +206,10 @@ template getData*(p: Pid, a: clong): expr =
   ptrace(PTRACE_PEEKDATA, p, a, 0)
 
 proc getData*[T: string|cstring|array|seq](p: Pid, a: clong, buf: var T, length: int) =
-  var i, j, k: int
+  var i, j: int
   var data: CValue
 
-  i = length div WORD_SIZE
+  i = ceil(length / WORD_SIZE).int
   for x in 0..i-1:
     data.lg = getData(p, a + x * WORD_SIZE)
     if errno != 0:
@@ -220,21 +220,9 @@ proc getData*[T: string|cstring|array|seq](p: Pid, a: clong, buf: var T, length:
       buf[j] = c
       inc(j)
 
-  k = length mod WORD_SIZE
-  if k != 0:
-    data.lg = getData(p, a + i * WORD_SIZE)
-    if errno != 0:
-      raise newException(IOError, "$#: $#" % [$errno, $strerror(errno)])
-    for c in data.chars:
-      if j >= length:
-        break
-      buf[j] = c
-      inc(j)
-
 proc getData*(p: Pid, a: clong, pt: pointer, length: int) {.inline.} =
-  var buf: cstring = newString(length)
+  var buf = cast[cstring](pt)
   getData(p, a, buf, length)
-  copyMem(pt, buf, length)
 
 proc getString*(p: Pid, a: clong, length: int): cstring =
     result = newString(length)
@@ -264,7 +252,7 @@ proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
   var i, j, idx: int
   var data: CValue
 
-  i = length div WORD_SIZE
+  i = ceil(length / WORD_SIZE).int
   while j < i:
     for k in 0..WORD_SIZE-1:
       idx = j * WORD_SIZE + k
@@ -277,17 +265,6 @@ proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
     if errno != 0:
       raise newException(IOError, "$#: $#" % [$errno, $strerror(errno)])
     inc(j)
-
-  j = length mod WORD_SIZE
-  if j != 0:
-    for k in 0..j-1:
-      idx = i * WORD_SIZE + k
-      if idx >= length:
-        break
-      data.chars[k] = (char)buf[idx]
-    ptrace(PTRACE_POKEDATA, p, a + i * WORD_SIZE, data.lg)
-    if errno != 0:
-      raise newException(IOError, "$#: $#" % [$errno, $strerror(errno)])
 
 template putString*(p: Pid, a: clong, str: string, length: clong) =
   putData(p, a, str, length)
