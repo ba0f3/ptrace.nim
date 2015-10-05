@@ -225,8 +225,8 @@ proc getData*(p: Pid, a: clong, pt: pointer, length: int) {.inline.} =
   getData(p, a, buf, length)
 
 proc getString*(p: Pid, a: clong, length: int): cstring =
-    result = newString(length)
-    getData(p, a, result, length)
+  result = newString(length)
+  getData(p, a, result, length)
 
 proc getString*(p: Pid, a: clong): string =
   var
