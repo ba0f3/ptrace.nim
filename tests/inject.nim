@@ -44,17 +44,17 @@ putData(tracee, regs.rip.clong, code, le)
 #setRegs(tracee, addr regs)
 cont(tracee)
 
-wait(nil)
+#wait(nil)
 
-echo "The process stopped, putting back the original instructions"
+#echo "The process stopped, putting back the original instructions"
 
-putData(tracee, regs.rip.clong, backup, le)
-if errno != 0:
-  echo strerror(errno)
-setRegs(tracee, addr regs)
-if errno != 0:
-  echo strerror(errno)
+#putData(tracee, regs.rip.clong, backup, le)
+#if errno != 0:
+#  echo strerror(errno)
+#setRegs(tracee, addr regs)
+#if errno != 0:
+#  echo strerror(errno)
 
-echo "Letting it continue with original flow"
+#echo "Letting it continue with original flow"
 
 detach(tracee)

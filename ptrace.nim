@@ -182,31 +182,31 @@ else:
 
 proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.c, discardable.}
 
-template setOptions*(p: Pid, opts: ptr cint): expr =
+template setOptions*(p: Pid, opts: ptr cint) =
   ptrace(PTRACE_SETOPTIONS, p, 0, opts)
 
 proc getRegs*(p: int): Registers {.inline.} =
   discard ptrace(PTRACE_GETREGS, p, 0, result)
 
-template setRegs*(p: Pid, regs: ptr Registers): expr =
+template setRegs*(p: Pid, regs: ptr Registers) =
   ptrace(PTRACE_SETREGS, p, 0, regs)
 
-template attach*(p: Pid): expr =
+template attach*(p: Pid) =
   ptrace(PTRACE_ATTACH, p, 0, 0)
 
-template detach*(p: Pid, signal: clong = 0): expr =
+template detach*(p: Pid, signal: clong = 0) =
   ptrace(PTRACE_DETACH, p, 0, signal)
 
-template cont*(p: Pid, signal: clong = 0): expr =
+template cont*(p: Pid, signal: clong = 0) =
   ptrace(PTRACE_CONT, p, 0, signal)
 
-proc traceMe*() {.inline.} =
+template traceMe*() =
   ptrace(PTRACE_TRACEME, 0, 0, 0)
 
-proc syscall*(p: Pid) {.inline.} =
+template syscall*(p: Pid) =
   ptrace(PTRACE_SYSCALL, p, 0, 0)
 
-proc singleStep*(p: Pid) {.inline.} =
+template singleStep*(p: Pid) =
   ptrace(PTRACE_SINGLESTEP, p, 0, 0)
 
 template peekUser*(p: Pid, a: clong): expr =
@@ -278,17 +278,17 @@ template putString*(p: Pid, a: clong, str: string, length: clong) =
   putData(p, a, str, length)
 
 when isMainModule:
-  var child: Pid;
-  var orig_ax: clong;
+  var
+    child: Pid
+    orig_ax: clong
+    a: cint
 
   child = fork()
   if child == 0:
-    discard traceMe()
+    traceMe()
     discard execl("/bin/ls", "ls", nil)
-
   else:
-    var a: cint
-    discard wait(a)
+    wait(addr a)
 
     var regs = getRegs(child)
     echo "orig_rax: ", regs.orig_rax
@@ -299,4 +299,4 @@ when isMainModule:
     if errno != 0:
       echo errno, " ", strerror(errno)
     echo "The child made a system call: ", orig_ax
-    discard cont(child, nil)
+    cont(child)
