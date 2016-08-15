@@ -1,9 +1,4 @@
-import posix
-
-{.pragma: c,
- importc,
- header: "sys/ptrace.h"
-.}
+import posix, strutils, math
 
 const
   WORD_SIZE* = sizeof(clong)
@@ -17,33 +12,29 @@ type
     ui*: cuint
     chars*: array[WORD_SIZE, cchar]
 
-var
-  PTRACE_TRACEME* {.c.}: cint
-  PTRACE_PEEKTEXT* {.c.}: cint
-  PTRACE_PEEKDATA* {.c.}: cint
-  PTRACE_PEEKUSER* {.c.}: cint
-  PTRACE_POKETEXT* {.c.}: cint
-  PTRACE_POKEDATA* {.c.}: cint
-  PTRACE_POKEUSER* {.c.}: cint
-  PTRACE_CONT* {.c.}: cint
-  PTRACE_KILL* {.c.}: cint
-  PTRACE_SINGLESTEP* {.c.}: cint
-  PTRACE_GETREGS* {.c.}: cint
-  PTRACE_SETREGS* {.c.}: cint
-  PTRACE_GETFPREGS* {.c.}: cint
-  PTRACE_SETFPREGS* {.c.}: cint
-  PTRACE_ATTACH* {.c.}: cint
-  PTRACE_DETACH* {.c.}: cint
-  PTRACE_GETFPXREGS* {.c.}: cint
-  PTRACE_SETFPXREGS* {.c.}: cint
-  PTRACE_SYSCALL* {.c.}: cint
-  PTRACE_SETOPTIONS* {.c.}: cint
-  PTRACE_GETEVENTMSG* {.c.}: cint
-  PTRACE_GETSIGINFO* {.c.}: cint
-  PTRACE_SETSIGINFO* {.c.}: cint
-  PTRACE_SEIZE* {.c.}: cint
-  PTRACE_INTERRUPT* {.c.}: cint
-  PTRACE_LISTEN* {.c.}: cint
+const
+  PTRACE_TRACEME* = 0
+  PTRACE_PEEKTEXT* = 1
+  PTRACE_PEEKDATA* = 2
+  PTRACE_PEEKUSER* = 3
+  PTRACE_POKETEXT* = 4
+  PTRACE_POKEDATA* = 5
+  PTRACE_POKEUSER* = 6
+  PTRACE_CONT* = 7
+  PTRACE_KILL* = 8
+  PTRACE_SINGLESTEP* = 9
+  PTRACE_GETREGS* = 12
+  PTRACE_SETREGS* = 13
+  PTRACE_ATTACH* = 16
+  PTRACE_DETACH* = 17
+  PTRACE_SYSCALL* = 24
+  PTRACE_SETOPTIONS* = 0x4200
+  PTRACE_GETEVENTMSG* = 0x4201
+  PTRACE_GETSIGINFO* =0x4202
+  PTRACE_SETSIGINFO* = 0x4203
+  PTRACE_SEIZE* = 0x4206
+  PTRACE_INTERRUPT* = 0x4207
+  PTRACE_LISTEN* = 0x4208
 
 const
   PTRACE_EVENT_FORK* = 1
@@ -88,22 +79,22 @@ when hostCPU == "i386":
       xss*: clong
   const
     EBX* = 0
-    ECX* = 1
-    EDX* = 2
-    ESI* = 3
-    EDI* = 4
-    EBP* = 5
-    EAX* = 6
-    DS* = 7
-    ES* = 8
-    FS* = 9
-    GS* = 10
-    ORIG_EAX* = 11
-    EIP* = 12
-    CS* = 13
-    EFL* = 14
-    UESP* = 15
-    SS* =16
+    ECX* = 4
+    EDX* = 8
+    ESI* = 14
+    EDI* = 16
+    EBP* = 20
+    EAX* = 24
+    DS* = 28
+    ES* = 32
+    FS* = 36
+    GS* = 40
+    ORIG_EAX* = 44
+    EIP* = 48
+    CS* = 52
+    EFL* = 56
+    UESP* = 60
+    SS* =64
 else:
 
   type
@@ -180,13 +171,14 @@ else:
     SYSCALL_ARG3* = RDX
     SYSCALL_RET_OFFSET* = RAX
 
-proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.c, discardable.}
+proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.cdecl, importc, header: "sys/ptrace.h", discardable.}
 
 template setOptions*(p: Pid, opts: ptr cint) =
   ptrace(PTRACE_SETOPTIONS, p, 0, opts)
 
-proc getRegs*(p: int): Registers {.inline.} =
-  discard ptrace(PTRACE_GETREGS, p, 0, result)
+template getRegs*(p: int, regs: ptr Registers) =
+  ptrace(PTRACE_GETREGS, p, 0, regs)
+
 
 template setRegs*(p: Pid, regs: ptr Registers) =
   ptrace(PTRACE_SETREGS, p, 0, regs)
@@ -215,41 +207,54 @@ template peekUser*(p: Pid, a: clong): expr =
 template getData*(p: Pid, a: clong): expr =
   ptrace(PTRACE_PEEKDATA, p, a, 0)
 
-proc getData*[T](p: Pid, a: clong, buf: var T, length: int) =
-  var i, j, k: int
+proc getData*[T: string|cstring|array|seq](p: Pid, a: clong, buf: var T, length: int) =
+  var i, j: int
   var data: CValue
 
-  i = length div WORD_SIZE
+  i = ceil(length / WORD_SIZE).int
   for x in 0..i-1:
     data.lg = getData(p, a + x * WORD_SIZE)
     if errno != 0:
-      echo errno, " ", strerror(errno)
+      raise newException(IOError, "$#: $#" % [$errno, $strerror(errno)])
     for c in data.chars:
       if j >= length:
         break
       buf[j] = c
       inc(j)
 
-  k = length mod WORD_SIZE
-  if k != 0:
-    data.lg = getData(p, a + i * WORD_SIZE)
-    if errno != 0:
-      echo errno, " ", strerror(errno)
-    for c in data.chars:
-      if j >= length:
-        break
-      buf[j] = c
-      inc(j)
+proc getData*(p: Pid, a: clong, pt: pointer, length: int) {.inline.} =
+  var buf = cast[cstring](pt)
+  getData(p, a, buf, length)
 
 proc getString*(p: Pid, a: clong, length: int): cstring =
-    result = newString(length)
-    getData(p, a, result, length)
+  result = newString(length)
+  getData(p, a, result, length)
+
+proc getString*(p: Pid, a: clong): string =
+  var
+    i = 0
+    data: CValue
+  result = newString(32)
+
+  while true:
+    data.lg = getData(p, a + i)
+
+    for j in 0..WORD_SIZE-1:
+      if data.chars[j] == '\0':
+        setLen(result, i + j)
+        return result
+
+      if i + j > result.len:
+        setLen(result, result.len + WORD_SIZE)
+      result[i + j] = data.chars[j]
+
+    i.inc(WORD_SIZE)
 
 proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
   var i, j, idx: int
   var data: CValue
 
-  i = length div WORD_SIZE
+  i = ceil(length / WORD_SIZE).int
   while j < i:
     for k in 0..WORD_SIZE-1:
       idx = j * WORD_SIZE + k
@@ -258,9 +263,9 @@ proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
       data.chars[k] = (char)buf[idx]
       ptrace(PTRACE_POKEDATA, p, a + j * WORD_SIZE, data.lg)
       if errno != 0:
-        echo errno, " ", strerror(errno)
+        raise newException(IOError, "$#: $#" % [$errno, $strerror(errno)])
     if errno != 0:
-        echo errno, " ", strerror(errno)
+      raise newException(IOError, "$#: $#" % [$errno, $strerror(errno)])
     inc(j)
 
   j = length mod WORD_SIZE
@@ -281,22 +286,24 @@ when isMainModule:
   var
     child: Pid
     orig_ax: clong
-    a: cint
 
   child = fork()
   if child == 0:
     traceMe()
     discard execl("/bin/ls", "ls", nil)
+
   else:
-    wait(addr a)
-
-    var regs = getRegs(child)
-    echo "orig_rax: ", regs.orig_rax
+    wait(nil)
+    var regs: Registers
+    getRegs(child, addr regs)
     if errno != 0:
-      echo errno, " ", strerror(errno)
-
+      echo "getRegs: ", strerror(errno)
+    when hostCPU == "i386":
+      echo "orig_eax: ", regs.orig_eax
+    else:
+      echo "orig_rax: ", regs.orig_rax
     orig_ax = peekUser(child, SYSCALL_NUM)
     if errno != 0:
-      echo errno, " ", strerror(errno)
+      echo "peekUser: ", errno, " ", strerror(errno)
     echo "The child made a system call: ", orig_ax
     cont(child)

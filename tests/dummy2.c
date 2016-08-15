@@ -2,7 +2,7 @@
 
 int main()
 {
-  int i;
+  int i = 0;
   for(;;) {
     printf("My counter: %d\n", i);
     sleep(2);
