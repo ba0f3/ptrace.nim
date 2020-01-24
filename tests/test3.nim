@@ -1,7 +1,7 @@
 import posix
 import strutils
-import ../ptrace/ptrace
-import ../ptrace/syscall
+import ptrace
+import private/syscall
 
 proc c_printf(frmt: cstring) {.importc: "printf", header: "<stdio.h>", varargs.}
 
@@ -25,7 +25,7 @@ else:
     if WIFEXITED(status):
       break
 
-    regs = getRegs(child)
+    getRegs(child, addr regs)
     if start == 1:
       ins = getData(child, regs.rip.clong)
       c_printf("RIP: %lx Instruction executed: %lx\n", regs.rip, ins)

@@ -1,6 +1,6 @@
 import posix
-import ../ptrace/ptrace
-import ../ptrace/syscall
+import ptrace
+import private/syscall
 
 
 var child: Pid
@@ -29,7 +29,8 @@ else:
         params[2] = peekUser(child, SYSCALL_ARG3)
         echo "Write called with ", params[0], ", ", params[1], ", ", params[2]
 
-        let regs: Registers = getRegs(child)
+        var regs: Registers
+        getRegs(child, addr regs)
         echo regs.rdi, " ", regs.rsi, " ", regs.rdx
 
       else:

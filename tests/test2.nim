@@ -1,7 +1,7 @@
 import posix
 import unicode
-import ../ptrace/ptrace
-import ../ptrace/syscall
+import ptrace
+import private/syscall
 
 var child: Pid
 var syscallNo: clong
