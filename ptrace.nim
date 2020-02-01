@@ -201,10 +201,10 @@ template syscall*(p: Pid) =
 template singleStep*(p: Pid) =
   ptrace(PTRACE_SINGLESTEP, p, 0, 0)
 
-template peekUser*(p: Pid, a: clong): expr =
+template peekUser*(p: Pid, a: clong): untyped =
   ptrace(PTRACE_PEEKUSER, p, a, 0)
 
-template getData*(p: Pid, a: clong): expr =
+template getData*(p: Pid, a: clong): untyped  =
   ptrace(PTRACE_PEEKDATA, p, a, 0)
 
 proc getData*[T: string|cstring|array|seq](p: Pid, a: clong, buf: var T, length: int) =
