@@ -1,4 +1,4 @@
-version       = "0.0.3"
+version       = "0.0.4"
 author        = "Huy Doan"
 description   = "ptrace wrapper and helpers for Nim"
 license       = "MIT"
