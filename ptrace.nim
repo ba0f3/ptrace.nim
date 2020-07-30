@@ -226,7 +226,7 @@ proc getData*(p: Pid, a: clong, pt: pointer, length: int) {.inline.} =
   var buf = cast[cstring](pt)
   getData(p, a, buf, length)
 
-proc getString*(p: Pid, a: clong, length: int): cstring =
+proc getString*(p: Pid, a: clong, length: int): string =
   result = newString(length)
   getData(p, a, result, length)
 
