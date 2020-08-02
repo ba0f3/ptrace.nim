@@ -176,7 +176,7 @@ proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.cdecl, impo
 template setOptions*(p: Pid, opts: ptr cint) =
   ptrace(PTRACE_SETOPTIONS, p, 0, opts)
 
-template getRegs*(p: int, regs: ptr Registers) =
+template getRegs*(p: Pid, regs: ptr Registers) =
   ptrace(PTRACE_GETREGS, p, 0, regs)
 
 

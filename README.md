@@ -9,7 +9,7 @@ ptrace wrapper and helpers for Nim
 ## Example
 
 ```nim
-import ptrace/ptrace
+import posix, ptrace
 
 var child: Pid;
 var syscallNum: clong;
@@ -22,7 +22,8 @@ else:
   var a: cint
   wait(nil)
 
-  var regs = getRegs(child)
+  var regs: Registers
+  getRegs(child, addr regs)
   echo "Syscall number: ", regs.orig_rax
   if errno != 0:
     echo errno, " ", strerror(errno)
@@ -31,5 +32,5 @@ else:
   if errno != 0:
     echo errno, " ", strerror(errno)
   echo "The child made a system call: ", syscallNum
-  cont(child, nil)
+  cont(child)
 ```
