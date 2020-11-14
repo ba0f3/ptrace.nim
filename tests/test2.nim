@@ -1,7 +1,6 @@
 import posix
 import unicode
-import ptrace
-import private/syscall
+import ptrace, ptrace/syscall
 
 var child: Pid
 var syscallNo: clong
@@ -33,8 +32,7 @@ else:
         #var str: string = newString(params[2])
         #getData(child, params[1], str, params[2])
         var str = getString(child, params[1], params[2])
-        str = reversed($str)
-        putString(child, params[1], $str, params[2])
+        putString(child, params[1], reversed(str))
       else:
         toggle = false
 

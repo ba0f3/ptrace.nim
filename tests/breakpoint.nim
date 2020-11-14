@@ -1,7 +1,4 @@
-import strutils, os, posix
-
-import ../ptrace/ptrace
-import ../ptrace/syscall
+import strutils, os, posix, ptrace, ptrace/syscall
 
 proc getchar(): cint {.importc.}
 
@@ -17,7 +14,7 @@ if paramCount() != 1:
 
 echo "Tracing process: ", paramStr(1)
 
-tracee = parseInt(paramStr(1))
+tracee = parseInt(paramStr(1)).Pid
 
 
 attach(tracee)
@@ -25,7 +22,7 @@ if errno != 0:
   quit($strerror(errno))
 wait(nil)
 
-regs = getRegs(tracee)
+getRegs(tracee, addr regs)
 
 getData(tracee, regs.rip.clong, backup, WORD_SIZE)
 code = backup

@@ -4,7 +4,7 @@ const
   WORD_SIZE* = sizeof(clong)
 
 type
-  CValue* = object {.union.}
+  CValue* {.union.} = object
     lg*: clong
     d*: cdouble
     f*: cfloat
@@ -173,26 +173,32 @@ else:
 
 proc ptrace*[T](request: cint, pid: Pid, a: clong, data: T): clong {.cdecl, importc, header: "sys/ptrace.h", discardable.}
 
-template setOptions*(p: Pid, opts: ptr cint) =
-  ptrace(PTRACE_SETOPTIONS, p, 0, opts)
+template setOptions*(p: Pid, data: ptr cint) =
+  ## Set ptrace options from `data`
+  ptrace(PTRACE_SETOPTIONS, p, 0, data)
 
 template getRegs*(p: Pid, regs: ptr Registers) =
+  ## Copy the tracee's general-purpose or floating-point registers to the address of `regs` in the tracer
   ptrace(PTRACE_GETREGS, p, 0, regs)
 
-
 template setRegs*(p: Pid, regs: ptr Registers) =
+  ## Modify the tracee's general-purpose or floating-point registers from the address of `regs` in the tracer
   ptrace(PTRACE_SETREGS, p, 0, regs)
 
-template attach*(p: Pid) =
-  ptrace(PTRACE_ATTACH, p, 0, 0)
+template attach*(pid: Pid) =
+  ## Attach to the process specified in `pid`
+  ptrace(PTRACE_ATTACH, pid, 0, 0)
 
 template detach*(p: Pid, signal: clong = 0) =
+  ## Restart the stopped tracee as for `cont` but first deattach from it
   ptrace(PTRACE_DETACH, p, 0, signal)
 
 template cont*(p: Pid, signal: clong = 0) =
+  ## Restart the stopped tracee process
   ptrace(PTRACE_CONT, p, 0, signal)
 
 template traceMe*() =
+  ## Indicate that this process is to be traced by its parent
   ptrace(PTRACE_TRACEME, 0, 0, 0)
 
 template syscall*(p: Pid) =
@@ -202,9 +208,12 @@ template singleStep*(p: Pid) =
   ptrace(PTRACE_SINGLESTEP, p, 0, 0)
 
 template peekUser*(p: Pid, a: clong): untyped =
+  ## Read a word at offset addr in the tracee's USER area, which
+  ## holds the registers and other information about the process
   ptrace(PTRACE_PEEKUSER, p, a, 0)
 
 template getData*(p: Pid, a: clong): untyped  =
+  ## Read a word at the address addr in the tracee's memory
   ptrace(PTRACE_PEEKDATA, p, a, 0)
 
 proc getData*[T: string|cstring|array|seq](p: Pid, a: clong, buf: var T, length: int) =
@@ -251,6 +260,7 @@ proc getString*(p: Pid, a: clong): string =
     i.inc(WORD_SIZE)
 
 proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
+  ## Copy the word data to the address addr in the tracee's memory.
   var i, j, idx: int
   var data: CValue
 
@@ -279,8 +289,7 @@ proc putData*[T: string|array](p: Pid, a: clong, buf: T, length: clong) =
     if errno != 0:
       echo errno, " ", strerror(errno)
 
-template putString*(p: Pid, a: clong, str: string, length: clong) =
-  putData(p, a, str, length)
+template putString*(p: Pid, a: clong, str: string) = putData(p, a, str, str.len.clong)
 
 when isMainModule:
   var

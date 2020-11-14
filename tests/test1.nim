@@ -1,6 +1,4 @@
-import posix
-import ptrace
-import private/syscall
+import posix, ptrace, ptrace/syscall
 
 
 var child: Pid

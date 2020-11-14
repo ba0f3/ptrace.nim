@@ -1,7 +1,4 @@
-import posix
-import strutils
-import ptrace
-import private/syscall
+import posix, ptrace, private/syscall
 
 proc c_printf(frmt: cstring) {.importc: "printf", header: "<stdio.h>", varargs.}
 
@@ -10,7 +7,7 @@ var child: Pid
 child = fork()
 if child == 0:
   traceMe()
-  echo execl("/bin/ls", "la")
+  echo execl("/bin/ls", "-la")
   if errno != 0:
     echo strerror(errno)
 else:

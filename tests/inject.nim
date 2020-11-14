@@ -1,7 +1,6 @@
-import strutils, os, posix, hex
+import strutils, os, posix
 
-import ../ptrace/ptrace
-import ../ptrace/syscall
+import ptrace, ptrace/syscall
 
 when hostCPU == "i386":
   const le =  41
@@ -35,7 +34,7 @@ if paramCount() != 1:
 
 echo "Tracing process: ", paramStr(1)
 
-tracee = parseInt(paramStr(1))
+tracee = parseInt(paramStr(1)).Pid
 
 
 attach(tracee)
