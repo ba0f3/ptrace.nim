@@ -3,7 +3,7 @@
  header: "sys/syscall.h"
 .}
 
-var
+let
   SYS_llseek* {.s, importc: "SYS__llseek".}: cint
   SYS_newselect* {.s, importc: "SYS__newselect".}: cint
   SYS_sysctl* {.s, importc: "SYS_sysctl".}: cint

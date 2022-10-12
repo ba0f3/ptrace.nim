@@ -1,5 +1,7 @@
 import posix, strutils, math
-
+{.push staticBoundChecks: on.}
+# <--- code section here ---->
+{.pop.}
 const
   WORD_SIZE* = sizeof(clong)
 
